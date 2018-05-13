@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="/stylesheets/xterm.css" />
+    <link rel="stylesheet" href="stylesheets/bootstrap.min.css" />
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/javascripts/xterm.js"></script>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light navbar-fixed-top">
+        <a class="navbar-brand" href="#">BOS</a>
+
+        <div class="collapse navbar-collapse" id="navbarColor03">
+            <!-- {{!--
+            <ul class="navbar-nav mr-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Home
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">About</a>
+                </li>
+            </ul>
+            <form class="form-inline my-2 my-lg-0">
+                <input class="form-control mr-sm-2" type="text" placeholder="Search">
+                <button class="btn btn-secondary my-2 my-sm-0" type="submit">Search</button>
+            </form> --}} -->
+        </div>
+    </nav>
+    <div class="shell-wrap">
+        <div class="shell-body">
+                <div id="terminal"></div>
+        </div>
+    </div>
+    
+    <script>
+
+        var term = new Terminal({
+            cursorBlink: true,
+            rows: 30
+        });
+        var input = "";
+        term.open(document.getElementById('terminal'));
+        term.writeln("\n\n  BOS command Line Interface v0.0.1");
+        term.writeln("  (BASM INTERPRETER)");
+
+        let myBuffer = [];
+
+        term.on('key', (key, ev) => {
+            const printable =
+                !ev.altKey && !ev.altGraphKey && !ev.ctrlKey && !ev.metaKey
+            // Ignore arrow keys
+            if (
+                ev.code === 'ArrowUp' ||
+                ev.code === 'ArrowDown' ||
+                ev.code === 'ArrowLeft' ||
+                ev.code === 'ArrowRight'
+            ) {
+                return;
+            }
+
+            if (ev.keyCode === 13) {
+                myBuffer += '';
+                term.write('\r\n');
+                if (myBuffer === "CLEAR" || myBuffer === "CLS") { // handles clear screen cmd locally
+                    term.reset();
+                    term.write('$ ');
+                }
+                else if (myBuffer === "REBOOT") {
+                    term.writeln('Reboot...');
+                    term.destroy();
+                }
+                else if (!myBuffer.replace(/\s/g, '').length) { // ignores blank our whitespace only inputs
+                    term.write('$ ');
+                }
+                else {
+                    handleCmd();
+                }
+                myBuffer = '';
+                
+
+            } else if (ev.keyCode === 8) {
+                if (term.buffer.x > 2) {
+                    term.write('\b \b');
+                    myBuffer = myBuffer.slice(0, -1);
+                }
+            } else if (printable) {
+                myBuffer += key;
+                term.write(key);
+            }
+        });
+
+
+        var socket = io.connect('http://localhost:3000/');
+        socket.on('ok', () => {
+            term.writeln('  Connected to server\n');
+            term.write('$ ');
+        });
+        socket.on('output', (output) => {
+            console.log("\"" + output + "\"");
+            term.writeln(output);
+            term.write('$ ');
+        });
+
+        async function handleCmd () {
+            await socket.emit('cmd', myBuffer);
+        }
+    </script>
+</body>
+
+</html>
